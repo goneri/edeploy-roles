@@ -20,7 +20,6 @@
   service: name={{ item }} state=stopped
   with_items:
     - mysqld
-    - mysql-boostrap
   tags: before_config
   ignore_errors: yes
   when: ansible_distribution == 'RedHat'
@@ -34,24 +33,41 @@
   tags: before_config
   when: ansible_distribution == 'RedHat'
 
-- name: start rabbitmq
+#### Red Hat upgrade Galera to 25.3.5-5.el7ost
+#### since we start in serial mode one by one, we are sure here that the first node
+#### in the list will be master.
+#### For other nodes, they will be started by Puppet later.
+###- name: create systemd mysql-bootstrap script
+###  copy: src=mysql-bootstrap.service dest=/etc/systemd/system/mysqld.service
+###  tags: before_config
+###  when: ansible_distribution == 'RedHat' and inventory_hostname == groups['openstack-full'][-1]
+###
+##- name: reload systemd scripts list
+##  command: systemctl daemon-reload
+##  tags: before_config
+##  when: ansible_distribution == 'RedHat'
+##
+##- name: bootstrap mysql cluster again
+##  service: name=mysqld state=started
+##  tags: before_config
+##  when: ansible_distribution == 'RedHat' and inventory_hostname == groups['openstack-full'][-1]
+
+- name: restart the mysql nodes
+  service: name=mysqld state=started
+  tags: before_config
+  when: ansible_distribution == 'RedHat'
+
+##- name: drop the mysql-bootstrap script
+##  file: path=/etc/systemd/system/mysqld.service state=absent
+##  tags: before_config
+##  when: ansible_distribution == 'RedHat' and inventory_hostname == groups['openstack-full'][-1]
+##
+
+# RabbitMQ
+- name: start RabbitMQ nodes
   service: name=rabbitmq-server state=started
   tags: before_config
-  when: ansible_distribution == 'RedHat' and inventory_hostname == groups['openstack-full'][-1]
-
-# Red Hat upgrade Galera to 25.3.5-5.el7ost
-# since we start in serial mode one by one, we are sure here that the first node
-# in the list will be master.
-# For other nodes, they will be started by Puppet later.
-- name: create systemd mysql-bootstrap script
-  copy: src=mysql-bootstrap.service dest=/usr/lib/systemd/system/mysql-bootstrap.service
-  tags: before_config
-  when: ansible_distribution == 'RedHat' and inventory_hostname == groups['openstack-full'][-1]
-
-- name: bootstrap mysql cluster again
-  service: name=mysql-bootstrap state=restarted
-  tags: before_config
-  when: ansible_distribution == 'RedHat' and inventory_hostname == groups['openstack-full'][-1]
+  when: ansible_distribution == 'RedHat'
 
 # libvirtd is updated on RHEL7
 - name: restart libvirtd after upgrade
